@@ -18,13 +18,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
-      
-      - name: Install uv
-        uses: astral-sh/uv-install-latest-action@v1
+          python-version: '3.11'
       
       - name: Install dependencies
-        run: uv sync --frozen
+        run: pip install -r requirements.txt
       
       - name: Run AI News Pipeline
         env:
@@ -42,17 +39,7 @@ jobs:
           channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
           payload: |
             {
-              "text": "AI News workflow failed",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*AI News workflow FAILED*"
-                  }
-                }
-              ]
+              "text": "AI News workflow failed"
             }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
