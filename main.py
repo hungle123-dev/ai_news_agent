@@ -56,33 +56,29 @@ def run() -> str:
     repo_limit = args.repo_limit or settings.default_repo_limit
     paper_limit = args.paper_limit or settings.default_paper_limit
     
-    crew_output = (
-        AINewsCrew(
-            repo_limit=repo_limit,
-            paper_limit=paper_limit,
-            paper_date=args.paper_date,
-        )
-        .crew()
-        .kickoff()
+    crew = AINewsCrew(
+        repo_limit=repo_limit,
+        paper_limit=paper_limit,
+        paper_date=args.paper_date,
     )
-
-    message_html = extract_message_html(crew_output)
-
-    if args.output_file:
-        args.output_file.write_text(message_html, encoding="utf-8")
-
-    if args.send:
-        title = crew_output.pydantic.title if hasattr(crew_output.pydantic, 'title') else "AI News"
-        
-        if args.telegraph:
-            telegraph_url = publish_to_telegraph(title, message_html)
-            if telegraph_url:
-                preview = f"<b>{title}</b>\n\n👉 <a href='{telegraph_url}'>Đọc chi tiết (Instant View)</a>"
-                TelegramService().send_html_message(preview)
-                print(f"✅ telegraph: {telegraph_url}")
-            else:
-                print("❌ telegraph: failed to publish")
+    
+    if args.send and args.telegraph:
+        curated = crew.get_curated_newsletter()
+        title = curated.headline if curated.headline else "AI News"
+        telegraph_url = publish_to_telegraph(title, curated=curated)
+        if telegraph_url:
+            preview = f"<b>{title}</b>\n\n👉 <a href='{telegraph_url}'>Đọc chi tiết (Instant View)</a>"
+            TelegramService().send_html_message(preview)
+            print(f"✅ telegraph: {telegraph_url}")
         else:
+            print("❌ telegraph: failed to publish")
+        message_html = f"<b>{title}</b>\n\n{curated.lead or ''}"
+    else:
+        crew_output = crew.crew().kickoff()
+        message_html = extract_message_html(crew_output)
+        
+        if args.send:
+            title = crew_output.pydantic.title if hasattr(crew_output.pydantic, 'title') else "AI News"
             active_platforms = get_active_platforms()
             
             if not active_platforms:
@@ -107,6 +103,9 @@ def run() -> str:
                 paper_count=paper_limit,
                 success=any(r.success for r in results.values()),
             )
+
+    if args.output_file:
+        args.output_file.write_text(message_html, encoding="utf-8")
 
     print(message_html)
     return message_html

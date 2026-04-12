@@ -122,3 +122,22 @@ class AINewsCrew:
             verbose=True,
             cache=True,
         )
+
+    def get_curated_newsletter(self) -> CuratedNewsletter:
+        """Chạy crew với 2 tasks (gather + summarize), lấy CuratedNewsletter."""
+        from crewai import Crew, Process
+        
+        gather = self.gather_task()
+        summarize = self.summarize_task()
+        
+        mini_crew = Crew(
+            agents=[self.researcher(), self.analyst()],
+            tasks=[gather, summarize],
+            process=Process.sequential,
+            verbose=True,
+        )
+        result = mini_crew.kickoff()
+        
+        if hasattr(result, 'pydantic') and isinstance(result.pydantic, CuratedNewsletter):
+            return result.pydantic
+        raise ValueError(f"Cannot get CuratedNewsletter: {result}")
