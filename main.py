@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from src.services.telegram_service import (
     publish_to_telegraph,
 )
 from src.utils import extract_message_html
+
+logger = logging.getLogger(__name__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -115,5 +118,6 @@ if __name__ == "__main__":
     try:
         run()
     except Exception as exc:
-        print(str(exc))
+        logger.error(f"Pipeline failed: {exc}")
+        print("❌ Pipeline failed. Check logs for details.")
         raise SystemExit(1)

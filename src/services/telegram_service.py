@@ -192,10 +192,18 @@ def split_telegram_html_message(
 
 
 def _safe_href(url: str) -> str | None:
-    parsed = urlsplit(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    import idna
+    
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return None
+        if parsed.username or parsed.password:
+            return None
+        idna.encode(parsed.netloc.encode('ascii'))
+        return html.escape(url, quote=True)
+    except Exception:
         return None
-    return html.escape(url, quote=True)
 
 
 def _render_entry(entry: NewsletterEntry, index: int) -> str:
@@ -487,27 +495,42 @@ def send_system_alert(message: str) -> bool:
         return False
 
 
+def _strip_api_keys(text: str) -> str:
+    """Strip API-key-like substrings to avoid leaking secrets."""
+    import re
+    patterns = [
+        r"sk-[a-zA-Z0-9\-]{20,}",  # OpenAI keys
+        r"github_pat_[A-Za-z0-9\-_]{20,}",  # GitHub PAT
+        r"[A-Za-z0-9\-]{30,}",  # Generic long tokens
+    ]
+    result = text
+    for pattern in patterns:
+        result = re.sub(pattern, "[REDACTED]", result)
+    return result
+
+
 def send_quota_alert(alert_type: str, details: str) -> bool:
     """Gửi cảnh báo liên quan đến quota/credit"""
+    safe_details = _strip_api_keys(details)
     if alert_type == "quota_exceeded":
         message = (
             f"💸 <b>TÀI KHOẢN API LLM ĐÃ HẾT TIỀN!</b>\n\n"
-            f"Chi tiết: <code>{details[:200]}</code>\n\n"
+            f"Chi tiết: <code>{safe_details[:200]}</code>\n\n"
             "Vui lòng nạp thêm credit để hệ thống tiếp tục hoạt động."
         )
     elif alert_type == "budget_80":
         message = (
             f"⚠️ <b>SẮP HẾT NGÂN SÁCH</b>\n\n"
-            f"Đã dùng <b>{details}</b> trong tháng này.\n"
+            f"Đã dùng <b>{safe_details}</b> trong tháng này.\n"
             "Nếu tiếp tục sử dụng với tốc độ hiện tại, có thể hết credit trong tháng."
         )
     elif alert_type == "budget_100":
         message = (
             f"⚠️ <b>ĐÃ CHẠM NGƯỠNG CHI PHÍ</b>\n\n"
-            f"Đã dùng <b>{details}</b> - vượt hạn mức ngân sách tháng."
+            f"Đã dùng <b>{safe_details}</b> - vượt hạn mức ngân sách tháng."
         )
     else:
-        message = details
+        message = _strip_api_keys(details)
     
     return send_system_alert(message)
 

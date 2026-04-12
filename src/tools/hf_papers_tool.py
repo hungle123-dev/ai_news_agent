@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import date, datetime, timedelta
 
@@ -10,6 +11,8 @@ from pydantic import BaseModel, Field
 
 from src.config import get_settings, prepare_runtime_environment
 from src.models import PaperResearchItem, PaperStructuredSummary
+
+logger = logging.getLogger(__name__)
 
 
 prepare_runtime_environment()
@@ -165,7 +168,8 @@ def extract_paper_info(
             message = response.choices[0].message
             if message.parsed:
                 return message.parsed
-        except Exception:
+        except Exception as e:
+            logger.warning(f"HF papers tool failed for {title[:50]}: {e}")
             continue
 
     return _fallback_paper_summary(normalized)

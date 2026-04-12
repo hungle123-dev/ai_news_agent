@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+CHAT_ID_PATTERN = re.compile(r"^-?\d+$")
 
 
 @dataclass
@@ -15,6 +18,10 @@ class PlatformConfig:
     chat_id: Optional[str] = None
     retry_attempts: int = 3
     timeout: int = 30
+
+    def __post_init__(self):
+        if self.chat_id and not CHAT_ID_PATTERN.match(self.chat_id):
+            raise ValueError(f"Invalid chat_id format: {self.chat_id}. Must be numeric or -prefixed.")
 
 
 @dataclass

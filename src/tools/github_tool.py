@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import re
 from typing import Any
 
@@ -12,6 +13,8 @@ from pydantic import BaseModel, Field
 
 from src.config import get_settings, prepare_runtime_environment
 from src.models import RepoResearchItem, RepoStructuredSummary
+
+logger = logging.getLogger(__name__)
 
 
 prepare_runtime_environment()
@@ -246,7 +249,8 @@ def extract_repo_info(
             message = response.choices[0].message
             if message.parsed:
                 return message.parsed
-        except Exception:
+        except Exception as e:
+            logger.warning(f"GitHub tool failed for {repo_path}: {e}")
             continue
 
     return _fallback_repo_summary(candidate)
@@ -313,7 +317,8 @@ class GithubTrendingRepoTool(BaseTool):
     def _run(self, limit: int = 5) -> str:
         try:
             repos = collect_trending_repo_summaries(limit=limit)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"GitHub trending collection failed: {e}")
             repos = []
         return json.dumps(
             [repo.model_dump() for repo in repos],
