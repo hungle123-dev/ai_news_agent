@@ -26,7 +26,11 @@ jobs:
           python -m pip install -r requirements.txt
       
       - name: Check telegraph package
-        run: python -m pip list | grep -i telegraph
+        run: |
+          echo "=== Checking telegraph ==="
+          python -m pip list | grep -i telegraph
+          echo "=== If empty above, installing ==="
+          python -m pip install telegraph || echo "Install may have failed"
       
       - name: Run AI News Pipeline
         env:
