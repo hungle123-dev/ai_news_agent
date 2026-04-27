@@ -1,0 +1,28 @@
+# AI News Agent - source config
+# Bật/tắt sources, cấu hình keywords filter
+
+sources:
+  github_trending:
+    enabled: true
+    # Ngôn ngữ cần theo dõi (empty = all)
+    languages: [python, typescript]
+    # Chỉ giữ repo có keyword này trong title/description
+    keywords: [ai, llm, agent, mcp, rag, gpt, llama, claude, openai]
+    # Số repo tối đa lấy mỗi ngày
+    max_items: 10
+
+  huggingface_papers:
+    enabled: true
+    # Ngày mặc định (empty = hôm nay)
+    date: ""
+    # Số paper tối đa
+    max_items: 10
+    # Filter keyword (case-insensitive)
+    keywords: [ai, llm, agent, multimodal, gpt, claude]
+
+# Cấu hình chung
+settings:
+  # Gửi bản tin lúc mấy giờ (UTC)
+  cron: "0 1 * * *"
+  # Số items tối đa trong bản tin
+  max_items_total: 10

@@ -15,6 +15,15 @@ from src.services.telegram_service import (
 )
 from src.utils import setup_logging
 from src.helpers import extract_message_html
+from src.state import (
+    load_state,
+    save_state,
+    add_seen,
+    get_stats,
+    clear_state,
+    STATE_DIR,
+    STATE_FILE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +56,21 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Preview only - không gửi đi đâu.",
     )
+    parser.add_argument(
+        "--reset-state",
+        action="store_true",
+        help="Xóa state file (seen.json).",
+    )
+    parser.add_argument(
+        "--init-state",
+        action="store_true",
+        help="Đánh dấu tất cả items hiện tại là đã thấy (seen).",
+    )
+    parser.add_argument(
+        "--show-state",
+        action="store_true",
+        help="Hiển thị state stats.",
+    )
     return parser
 
 
@@ -63,6 +87,24 @@ def _paper_date_arg(value: str) -> str:
 def run() -> str:
     args = build_parser().parse_args()
     settings = get_settings()
+
+    # State management commands
+    if args.reset_state:
+        if clear_state():
+            print("✅ State cleared.")
+            file_logger.info("State cleared by user")
+        else:
+            print("No state to clear.")
+        return ""
+
+    if args.show_state:
+        state = load_state()
+        stats = get_stats(state)
+        print(f"📊 State Stats:")
+        print(f"  Seen items: {stats['seen_count']}")
+        print(f"  Last run: {stats['last_run'] or 'Never'}")
+        print(f"  State file: {STATE_FILE}")
+        return ""
 
     # Dry-run: chỉ chạy crew và preview, không gửi đi đâu
     if args.dry_run:
