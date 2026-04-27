@@ -13,9 +13,12 @@ from src.services.telegram_service import (
     TelegramService,
     publish_to_telegraph,
 )
-from src.utils import extract_message_html
+from src.utils import setup_logging
+from src.helpers import extract_message_html
 
 logger = logging.getLogger(__name__)
+
+file_logger = setup_logging("ai-news")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -39,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Gửi qua Telegraph (1 tin nhắn thay vì nhiều tin).",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview only - không gửi đi đâu.",
+    )
     return parser
 
 
@@ -55,16 +63,51 @@ def _paper_date_arg(value: str) -> str:
 def run() -> str:
     args = build_parser().parse_args()
     settings = get_settings()
-    
+
+    # Dry-run: chỉ chạy crew và preview, không gửi đi đâu
+    if args.dry_run:
+        file_logger.info("🚀 Dry-run mode - Preview only")
+        repo_limit = args.repo_limit or settings.default_repo_limit
+        paper_limit = args.paper_limit or settings.default_paper_limit
+
+        crew = AINewsCrew(
+            repo_limit=repo_limit,
+            paper_limit=paper_limit,
+            paper_date=args.paper_date,
+        )
+
+        if args.telegraph:
+            try:
+                curated = crew.get_curated_newsletter()
+                title = curated.headline if curated.headline else "AI News"
+                message_html = f"<b>{title}</b>\n\n{curated.lead or ''}"
+                print(f"\n📰 DRY-RUN PREVIEW (Telegraph mode):\n{message_html}\n")
+                file_logger.info(f"Dry-run: {title} - ready for telegraph")
+            except Exception as e:
+                print(f"❌ Error in dry-run: {e}")
+                file_logger.error(f"Dry-run failed: {e}")
+        else:
+            crew_output = crew.crew().kickoff()
+            message_html = extract_message_html(crew_output)
+            print(f"\n📰 DRY-RUN PREVIEW:\n{message_html}\n")
+            title = (
+                crew_output.pydantic.title
+                if hasattr(crew_output.pydantic, "title")
+                else "AI News"
+            )
+            file_logger.info(f"Dry-run: {title} - ready for preview")
+
+        return message_html
+
     repo_limit = args.repo_limit or settings.default_repo_limit
     paper_limit = args.paper_limit or settings.default_paper_limit
-    
+
     crew = AINewsCrew(
         repo_limit=repo_limit,
         paper_limit=paper_limit,
         paper_date=args.paper_date,
     )
-    
+
     if args.send and args.telegraph:
         curated = crew.get_curated_newsletter()
         title = curated.headline if curated.headline else "AI News"
@@ -79,28 +122,33 @@ def run() -> str:
     else:
         crew_output = crew.crew().kickoff()
         message_html = extract_message_html(crew_output)
-        
+
         if args.send:
-            title = crew_output.pydantic.title if hasattr(crew_output.pydantic, 'title') else "AI News"
+            title = (
+                crew_output.pydantic.title
+                if hasattr(crew_output.pydantic, "title")
+                else "AI News"
+            )
             active_platforms = get_active_platforms()
-            
+
             if not active_platforms:
                 print("⚠️  Không có platform nào được bật. Kiểm tra cấu hình .env")
-            
+
             gateway = build_gateway()
             gateway.connect_all()
-            
+
             results = gateway.deliver_newsletter(
-                message_html,
-                platforms=active_platforms if active_platforms else None
+                message_html, platforms=active_platforms if active_platforms else None
             )
-            
+
             for platform, result in results.items():
                 status = "✅" if result.success else "❌"
                 print(f"{status} {platform}: {result.error or result.message_id}")
-            
+
             record_pipeline_run(
-                model=settings.openai_model if settings.llm_provider == "openai" else settings.gemini_model,
+                model=settings.openai_model
+                if settings.llm_provider == "openai"
+                else settings.gemini_model,
                 provider=settings.llm_provider,
                 repo_count=repo_limit,
                 paper_count=paper_limit,

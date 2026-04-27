@@ -1,41 +1,51 @@
-"""
-Utility functions for AI News Agent.
-Shared helper functions used across modules.
-"""
+"""File logging setup for AI News Agent."""
+
 from __future__ import annotations
 
-import html
+import logging
+from pathlib import Path
+from datetime import datetime
 
-from src.models import CuratedNewsletter, FormattedNewsletter
-from src.services.telegram_service import (
-    normalize_telegram_html,
-    render_curated_newsletter_html,
-)
-
-
-def extract_message_html(crew_output) -> str:
-    """Extract HTML message from crew output.
-    
-    Handles both FormattedNewsletter and CuratedNewsletter formats.
-    """
-    if isinstance(crew_output.pydantic, FormattedNewsletter):
-        body = normalize_telegram_html(crew_output.pydantic.message_html)
-        title = crew_output.pydantic.title.strip()
-        if title and title not in body:
-            return f"<b>{html.escape(title)}</b><br><br>{body}"
-        return body
-
-    for task_output in reversed(crew_output.tasks_output or []):
-        if isinstance(task_output.pydantic, FormattedNewsletter):
-            body = normalize_telegram_html(task_output.pydantic.message_html)
-            title = task_output.pydantic.title.strip()
-            if title and title not in body:
-                return f"<b>{html.escape(title)}</b><br><br>{body}"
-            return body
-        if isinstance(task_output.pydantic, CuratedNewsletter):
-            return render_curated_newsletter_html(task_output.pydantic)
-
-    return normalize_telegram_html(crew_output.raw)
+LOG_DIR = Path.home() / ".ai-news"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "radar.log"
 
 
-__all__ = ["extract_message_html"]
+def setup_logging(name: str = "ai-news") -> logging.Logger:
+    """Setup file logging + console logging."""
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    if logger.handlers:
+        return logger
+
+    file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    )
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+def log(message: str, level: str = "INFO") -> None:
+    """Quick log helper."""
+    logger = logging.getLogger("ai-news")
+    if not logger.handlers:
+        logger = setup_logging()
+
+    getattr(logger, level.lower(), logger.info)(message)
+
+
+setup_logging()
+
+INFO = lambda msg: log(msg, "INFO")
+WARNING = lambda msg: log(msg, "WARNING")
+ERROR = lambda msg: log(msg, "ERROR")
