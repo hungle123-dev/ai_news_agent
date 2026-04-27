@@ -4,7 +4,13 @@ from datetime import date, timedelta
 
 from src.config import get_settings, prepare_runtime_environment
 from src.models import CuratedNewsletter, FormattedNewsletter, ResearchCollection
-from src.tools import GithubTrendingRepoTool, HuggingFaceDailyPapersTool
+from src.tools import (
+    GithubTrendingRepoTool,
+    HuggingFaceDailyPapersTool,
+    AnthropicNewsTool,
+    SecurityNewsTool,
+    GitHubRSSTool,
+)
 
 
 prepare_runtime_environment()
@@ -61,7 +67,13 @@ class AINewsCrew:
         return Agent(
             config=self.agents_config["researcher"],
             llm=self.settings.build_crewai_llm(temperature=0.0),
-            tools=[GithubTrendingRepoTool(), HuggingFaceDailyPapersTool()],
+            tools=[
+                GithubTrendingRepoTool(),
+                HuggingFaceDailyPapersTool(),
+                GitHubRSSTool(),
+                AnthropicNewsTool(),
+                SecurityNewsTool(),
+            ],
             verbose=True,
             allow_delegation=False,
             max_iter=8,
@@ -126,10 +138,10 @@ class AINewsCrew:
     def get_curated_newsletter(self) -> CuratedNewsletter:
         """Chạy crew với 2 tasks (gather + summarize), lấy CuratedNewsletter."""
         from crewai import Crew, Process
-        
+
         gather = self.gather_task()
         summarize = self.summarize_task()
-        
+
         mini_crew = Crew(
             agents=[self.researcher(), self.analyst()],
             tasks=[gather, summarize],
@@ -137,7 +149,9 @@ class AINewsCrew:
             verbose=True,
         )
         result = mini_crew.kickoff()
-        
-        if hasattr(result, 'pydantic') and isinstance(result.pydantic, CuratedNewsletter):
+
+        if hasattr(result, "pydantic") and isinstance(
+            result.pydantic, CuratedNewsletter
+        ):
             return result.pydantic
         raise ValueError(f"Cannot get CuratedNewsletter: {result}")
