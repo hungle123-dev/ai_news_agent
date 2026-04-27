@@ -11,15 +11,6 @@ sources:
     # Số repo tối đa lấy mỗi ngày
     max_items: 10
 
-  huggingface_papers:
-    enabled: true
-    # Ngày mặc định (empty = hôm nay)
-    date: ""
-    # Số paper tối đa
-    max_items: 10
-    # Filter keyword (case-insensitive)
-    keywords: [ai, llm, agent, multimodal, gpt, claude]
-
 # Cấu hình chung
 settings:
   # Gửi bản tin lúc mấy giờ (UTC)

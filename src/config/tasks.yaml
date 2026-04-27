@@ -4,21 +4,20 @@ gather_task:
   description: >
     Hãy dùng đúng các tool được cấp để thu thập dữ liệu thô cho ngày {run_date}.
     1. Gọi tool GitHub để lấy tối đa {repo_limit} repo AI/agentic đang nổi trên GitHub Trending daily.
-    2. Gọi tool Hugging Face Daily Papers với ngày {paper_date} và giới hạn {paper_limit}.
+    2. Gọi tool Anthropic News và Security News để lấy tin mới nhất.
     3. Không tự bịa thêm nguồn ngoài tool.
-    4. Giữ lại đầy đủ URL, stars/upvotes, one-liner, core problem, highlights và tech details.
+    4. Giữ lại đầy đủ URL, stars/upvotes, title, summary.
   expected_output: >
-    Một object ResearchCollection gồm generated_at, repos và papers; dữ liệu gọn, đúng link, đúng schema.
+    Một object ResearchCollection gồm generated_at và danh sách items; dữ liệu gọn, đúng link, đúng schema.
 
 summarize_task:
   description: >
     Nhận ResearchCollection từ researcher và làm các việc sau:
-    1. Chọn đúng {repo_limit} repo có tính ứng dụng cao nhất cho dev/builders.
-    2. Chọn đúng {paper_limit} paper có tín hiệu đột phá hoặc tác động thực tế cao nhất.
-    3. Với mỗi mục, tạo TL;DR ngắn gọn, giải thích vì sao đáng chú ý, và 2-3 highlights.
-    4. source_signal phải tận dụng tín hiệu có sẵn, ví dụ "756 stars today" hoặc "181 upvotes".
-    5. Viết hoàn toàn bằng tiếng Việt tự nhiên, tránh dịch máy.
-    6. headline phải đủ lực để dùng làm title bản tin, lead phải ngắn và đúng trọng tâm.
+    1. Chọn đúng {repo_limit} items có tính ứng dụng cao nhất cho dev/builders.
+    2. Với mỗi mục, tạo TL;DR ngắn gọn, giải thích vì sao đáng chú ý, và 2-3 highlights.
+    3. source_signal phải tận dụng tín hiệu có sẵn, ví dụ "756 stars today".
+    4. Viết hoàn toàn bằng tiếng Việt tự nhiên, tránh dịch máy.
+    5. headline phải đủ lực để dùng làm title bản tin, lead phải ngắn và đúng trọng tâm.
   expected_output: >
     Một object CuratedNewsletter gồm headline, lead, repos và papers; mỗi entry có title, url, tldr,
     why_it_matters, highlights và source_signal.
@@ -33,5 +32,4 @@ format_task:
     - Giữ giọng điệu gọn, nhịp đọc tốt trên mobile.
     - Không bịa thêm nội dung ngoài CuratedNewsletter.
   expected_output: >
-    Một object FormattedNewsletter với title và message_html; message_html là nội dung HTML hoàn chỉnh,
-    sạch code fences, sẵn sàng gửi trực tiếp vào Telegram.
+    Một object FormattedNewsletter gồm title và message_html; message_html phải là HTML hợp lệ cho Telegram.

@@ -6,7 +6,6 @@ from src.config import get_settings, prepare_runtime_environment
 from src.models import CuratedNewsletter, FormattedNewsletter, ResearchCollection
 from src.tools import (
     GithubTrendingRepoTool,
-    HuggingFaceDailyPapersTool,
     AnthropicNewsTool,
     SecurityNewsTool,
     GitHubRSSTool,
@@ -33,32 +32,20 @@ class AINewsCrew:
     def __init__(
         self,
         repo_limit: int | None = None,
-        paper_limit: int | None = None,
-        paper_date: str | None = None,
     ) -> None:
         self.settings = get_settings()
         if repo_limit is not None and repo_limit <= 0:
             raise ValueError("repo_limit phải lớn hơn 0.")
-        if paper_limit is not None and paper_limit <= 0:
-            raise ValueError("paper_limit phải lớn hơn 0.")
 
         self.repo_limit = (
             repo_limit if repo_limit is not None else self.settings.default_repo_limit
         )
-        self.paper_limit = (
-            paper_limit
-            if paper_limit is not None
-            else self.settings.default_paper_limit
-        )
-        self.paper_date = paper_date
 
     @before_kickoff
     def inject_defaults(self, inputs: dict) -> dict:
         payload = dict(inputs or {})
         reference_date = date.today() - timedelta(days=1)
         payload.setdefault("repo_limit", self.repo_limit)
-        payload.setdefault("paper_limit", self.paper_limit)
-        payload.setdefault("paper_date", self.paper_date or reference_date.isoformat())
         payload.setdefault("run_date", reference_date.isoformat())
         return payload
 
@@ -69,7 +56,6 @@ class AINewsCrew:
             llm=self.settings.build_crewai_llm(temperature=0.0),
             tools=[
                 GithubTrendingRepoTool(),
-                HuggingFaceDailyPapersTool(),
                 GitHubRSSTool(),
                 AnthropicNewsTool(),
                 SecurityNewsTool(),

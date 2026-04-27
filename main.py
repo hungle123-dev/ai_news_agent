@@ -33,8 +33,6 @@ file_logger = setup_logging("ai-news")
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run AI news agent pipeline.")
     parser.add_argument("--repo-limit", type=int, default=None)
-    parser.add_argument("--paper-limit", type=int, default=None)
-    parser.add_argument("--paper-date", type=_paper_date_arg, default=None)
     parser.add_argument(
         "--send",
         action="store_true",
@@ -148,12 +146,9 @@ def run() -> str:
     if args.dry_run:
         file_logger.info("🚀 Dry-run mode - Preview only")
         repo_limit = args.repo_limit or settings.default_repo_limit
-        paper_limit = args.paper_limit or settings.default_paper_limit
 
         crew = AINewsCrew(
             repo_limit=repo_limit,
-            paper_limit=paper_limit,
-            paper_date=args.paper_date,
         )
 
         if args.telegraph:
@@ -180,12 +175,9 @@ def run() -> str:
         return message_html
 
     repo_limit = args.repo_limit or settings.default_repo_limit
-    paper_limit = args.paper_limit or settings.default_paper_limit
 
     crew = AINewsCrew(
         repo_limit=repo_limit,
-        paper_limit=paper_limit,
-        paper_date=args.paper_date,
     )
 
     if args.send and args.telegraph:
@@ -231,7 +223,6 @@ def run() -> str:
                 else settings.gemini_model,
                 provider=settings.llm_provider,
                 repo_count=repo_limit,
-                paper_count=paper_limit,
                 success=any(r.success for r in results.values()),
             )
 
