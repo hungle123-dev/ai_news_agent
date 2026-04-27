@@ -71,6 +71,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Hiển thị state stats.",
     )
+    parser.add_argument(
+        "--test-source",
+        type=str,
+        default=None,
+        help="Test a specific source (e.g., github, anthropic, security).",
+    )
     return parser
 
 
@@ -104,6 +110,38 @@ def run() -> str:
         print(f"  Seen items: {stats['seen_count']}")
         print(f"  Last run: {stats['last_run'] or 'Never'}")
         print(f"  State file: {STATE_FILE}")
+        return ""
+
+    # Test a specific source
+    if args.test_source:
+        from src.config_loader import get_source_config
+
+        source_name = args.test_source
+
+        if source_name == "github":
+            from src.sources.github_trending import fetch as gh_fetch
+
+            cfg = get_source_config("github_trending")
+            items = gh_fetch(cfg)
+        elif source_name == "anthropic":
+            from src.sources.anthropic import fetch as an_fetch
+
+            cfg = get_source_config("anthropic")
+            items = an_fetch(cfg)
+        elif source_name == "security":
+            from src.sources.security import fetch as sec_fetch
+
+            cfg = get_source_config("security")
+            items = sec_fetch(cfg)
+        else:
+            print(f"Unknown source: {source_name}")
+            print(f"Available: github, anthropic, security")
+            return ""
+
+        print(f"📰 {source_name}: {len(items)} items")
+        for item in items[:5]:
+            print(f"  • {item.title[:60]}")
+            print(f"    {item.url}")
         return ""
 
     # Dry-run: chỉ chạy crew và preview, không gửi đi đâu
