@@ -60,6 +60,12 @@ class NewsletterEntry(BaseModel):
     highlights: list[str] = Field(default_factory=list)
     source_signal: str | None = None
 
+    # Metadata bổ sung cho rich rendering trong Email template
+    language: str | None = None          # Ngôn ngữ lập trình, e.g. "Python"
+    stars_today: int | None = None       # Số sao GitHub hôm nay
+    rank: int | None = None              # Xếp hạng trending, e.g. 1
+    source_label: str | None = None      # Tên nguồn, e.g. "Anthropic", "The Hacker News"
+
     @field_validator("highlights")
     @classmethod
     def cap_highlights(cls, v: list[str]) -> list[str]:

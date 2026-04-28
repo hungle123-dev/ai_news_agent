@@ -25,6 +25,7 @@ class NewsGateway:
         self,
         html: str,
         platforms: Optional[list[str]] = None,
+        curated=None,
     ) -> dict[str, DeliveryResult]:
         """Gửi HTML đến các platform. Nếu platforms=None thì gửi tất cả."""
         targets = platforms or list(self._adapters.keys())
@@ -35,7 +36,7 @@ class NewsGateway:
             if adapter is None:
                 logger.warning("Platform '%s' chưa được đăng ký", name)
                 continue
-            results[name] = adapter.deliver(html)
+            results[name] = adapter.deliver(html, curated=curated)
 
         return results
 

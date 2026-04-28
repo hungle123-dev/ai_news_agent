@@ -135,7 +135,16 @@ def cmd_run(args: argparse.Namespace) -> str:
             return message_html
 
         gateway = build_gateway()
-        results = gateway.deliver(message_html, platforms=active_platforms)
+        
+        # Trích xuất CuratedNewsletter để gửi cho Email template (nếu cần)
+        from src.models import CuratedNewsletter
+        curated_data = None
+        for task_out in reversed(crew_output.tasks_output or []):
+            if isinstance(task_out.pydantic, CuratedNewsletter):
+                curated_data = task_out.pydantic
+                break
+
+        results = gateway.deliver(message_html, platforms=active_platforms, curated=curated_data)
 
         for platform, result in results.items():
             icon = "✅" if result.success else "❌"
