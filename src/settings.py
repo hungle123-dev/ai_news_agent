@@ -142,27 +142,47 @@ def _detect_provider() -> str:
     raise RuntimeError("Cần OPENAI_API_KEY hoặc GEMINI_API_KEY trong file .env")
 
 
+def _int_env(name: str, default: int) -> int:
+    """Safely parse int env var — returns default if missing or empty string."""
+    val = (os.getenv(name) or "").strip()
+    return int(val) if val else default
+
+
+def _str_env(name: str) -> str | None:
+    """Return None if env var is missing or empty string."""
+    val = (os.getenv(name) or "").strip()
+    return val if val else None
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    """Safely parse bool env var — handles empty string."""
+    val = (os.getenv(name) or "").strip().lower()
+    if not val:
+        return default
+    return val == "true"
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Singleton Settings — load một lần, cache mãi."""
     return Settings(
         llm_provider=_detect_provider(),
-        openai_key=os.getenv("OPENAI_API_KEY"),
-        gemini_key=os.getenv("GEMINI_API_KEY"),
-        openai_model=os.getenv("AI_NEWS_OPENAI_MODEL", "gpt-4o-mini"),
-        gemini_model=os.getenv("AI_NEWS_GEMINI_MODEL", "gemini-2.0-flash"),
-        github_token=os.getenv("GITHUB_TOKEN"),
-        telegram_token=os.getenv("TELEGRAM_TOKEN"),
-        chat_id=os.getenv("CHAT_ID"),
-        discord_webhook_url=os.getenv("DISCORD_WEBHOOK_URL"),
-        email_smtp_host=os.getenv("EMAIL_SMTP_HOST"),
-        email_smtp_port=int(os.getenv("EMAIL_SMTP_PORT", "587")),
-        email_username=os.getenv("EMAIL_USERNAME"),
-        email_password=os.getenv("EMAIL_PASSWORD"),
-        email_from=os.getenv("EMAIL_FROM"),
-        email_to=os.getenv("EMAIL_TO"),
-        enable_telegram=os.getenv("ENABLE_TELEGRAM", "true").lower() == "true",
-        enable_discord=os.getenv("ENABLE_DISCORD", "false").lower() == "true",
-        enable_email=os.getenv("ENABLE_EMAIL", "false").lower() == "true",
-        default_repo_limit=int(os.getenv("AI_NEWS_REPO_LIMIT", "5")),
+        openai_key=_str_env("OPENAI_API_KEY"),
+        gemini_key=_str_env("GEMINI_API_KEY"),
+        openai_model=_str_env("AI_NEWS_OPENAI_MODEL") or "gpt-4o-mini",
+        gemini_model=_str_env("AI_NEWS_GEMINI_MODEL") or "gemini-2.0-flash",
+        github_token=_str_env("GITHUB_TOKEN"),
+        telegram_token=_str_env("TELEGRAM_TOKEN"),
+        chat_id=_str_env("CHAT_ID"),
+        discord_webhook_url=_str_env("DISCORD_WEBHOOK_URL"),
+        email_smtp_host=_str_env("EMAIL_SMTP_HOST"),
+        email_smtp_port=_int_env("EMAIL_SMTP_PORT", 587),
+        email_username=_str_env("EMAIL_USERNAME"),
+        email_password=_str_env("EMAIL_PASSWORD"),
+        email_from=_str_env("EMAIL_FROM"),
+        email_to=_str_env("EMAIL_TO"),
+        enable_telegram=_bool_env("ENABLE_TELEGRAM", True),
+        enable_discord=_bool_env("ENABLE_DISCORD", False),
+        enable_email=_bool_env("ENABLE_EMAIL", False),
+        default_repo_limit=_int_env("AI_NEWS_REPO_LIMIT", 5),
     )
