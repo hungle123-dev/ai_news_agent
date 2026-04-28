@@ -40,7 +40,7 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         
         # Source APIs
-        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
         # Telegram Delivery
         ENABLE_TELEGRAM: ${{ secrets.ENABLE_TELEGRAM }}
