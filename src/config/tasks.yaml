@@ -8,11 +8,13 @@ gather_task:
     2. GitHub Trending RSS — backup source từ RSS feed
     3. Anthropic News — tin tức từ Anthropic
     4. Security News — tin bảo mật quan trọng
+    5. hacker_news_tool — top tin tức Hacker News về AI
+    6. arxiv_tool — các bài nghiên cứu AI/ML mới nhất từ Arxiv
 
     Tổng hợp kết quả vào một ResearchCollection với:
     - generated_at: thời gian hiện tại (ISO 8601)
     - repos: danh sách RepoResearchItem từ GitHub
-    - articles: danh sách ArticleResearchItem từ Anthropic và Security
+    - articles: danh sách ArticleResearchItem từ các nguồn còn lại
 
   expected_output: >
     Một ResearchCollection JSON hợp lệ chứa ít nhất:
@@ -28,6 +30,9 @@ summarize_task:
        - tldr: tóm tắt ngắn gọn 1-2 câu, TẬP TRUNG vào GIÁ TRỊ THỰC TẾ
        - why_it_matters: tại sao developer Việt Nam nên quan tâm
        - highlights: tối đa 3 bullet points kỹ thuật
+       - language: (Cho Repo) Ngôn ngữ lập trình chính (vd: Python, TypeScript)
+       - stars_today: (Cho Repo) Số lượng sao mới nếu có thể ước lượng
+       - source_label: (Cho Article) Nguồn bài (vd: Anthropic, The Hacker News)
     4. Tạo headline và lead paragraph cho toàn bộ bản tin
 
     Lưu ý: Ưu tiên những repo/tin có thể ứng dụng ngay, không chỉ là research.

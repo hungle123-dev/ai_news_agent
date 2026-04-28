@@ -126,7 +126,27 @@ def cmd_run(args: argparse.Namespace) -> str:
     if args.dry_run:
         print(f"\n📰 DRY-RUN PREVIEW:\n{message_html}\n")
         logger.info("Dry-run hoàn thành")
-        return message_html
+        if not args.send:
+            # Nếu dry-run, vẫn thử gen file HTML premium để check
+            from src.models import CuratedNewsletter
+            curated_data = None
+            for task_out in reversed(crew_output.tasks_output or []):
+                if isinstance(task_out.pydantic, CuratedNewsletter):
+                    curated_data = task_out.pydantic
+                    break
+            
+            if curated_data:
+                from src.delivery.email import EmailAdapter, EmailConfig
+                try:
+                    adp = EmailAdapter(EmailConfig(enabled=True))
+                    html_out = adp._render_beautiful_email(curated_data)
+                    with open("dry_run_email.html", "w", encoding="utf-8") as f:
+                        f.write(html_out)
+                    print(f"✅ Đã gen file test HTML cao cấp tại: dry_run_email.html")
+                except Exception as e:
+                    print(f"❌ Lỗi gen email HTML: {e}")
+            
+            return message_html
 
     if args.send:
         active_platforms = get_active_platforms()
@@ -136,7 +156,7 @@ def cmd_run(args: argparse.Namespace) -> str:
 
         gateway = build_gateway()
         
-        # Trích xuất CuratedNewsletter để gửi cho Email template (nếu cần)
+        # Trích xuất CuratedNewsletter để gửi cho Email template
         from src.models import CuratedNewsletter
         curated_data = None
         for task_out in reversed(crew_output.tasks_output or []):
@@ -146,6 +166,27 @@ def cmd_run(args: argparse.Namespace) -> str:
 
         results = gateway.deliver(message_html, platforms=active_platforms, curated=curated_data)
 
+        # 4. LƯU TRỮ BẢN TIN VÀO ARCHIVE CHO WEB DASHBOARD
+        if curated_data:
+            import os
+            from datetime import datetime
+            from src.delivery.email import EmailAdapter, EmailConfig
+            
+            archive_dir = Path("data/archive")
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            archive_file = archive_dir / f"digest_{date_str}.html"
+            
+            try:
+                adp = EmailAdapter(EmailConfig(enabled=True))
+                premium_html = adp._render_beautiful_email(curated_data)
+                archive_file.write_text(premium_html, encoding="utf-8")
+                logger.info(f"Đã lưu archive bản tin tại: {archive_file}")
+            except Exception as e:
+                logger.error(f"Lỗi lưu archive: {e}")
+
+        # In kết quả Delivery
+        print("\n📬 DELIVERY RESULTS:")
         for platform, result in results.items():
             icon = "✅" if result.success else "❌"
             detail = result.error or result.message_id or "OK"

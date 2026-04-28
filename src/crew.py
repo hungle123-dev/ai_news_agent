@@ -20,6 +20,8 @@ from src.tools import (
     GitHubRSSTool,
     AnthropicNewsTool,
     SecurityNewsTool,
+    hacker_news_tool,
+    arxiv_tool,
 )
 
 # Path đến file config — tương đối với file này (src/)
@@ -58,6 +60,8 @@ class AINewsCrew:
                 GitHubRSSTool(),
                 AnthropicNewsTool(),
                 SecurityNewsTool(),
+                hacker_news_tool,
+                arxiv_tool,
             ],
             verbose=False,
         )
