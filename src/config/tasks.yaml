@@ -20,13 +20,13 @@ gather_task:
   expected_output: >
     Một ResearchCollection JSON hợp lệ chứa ít nhất:
     - 3-5 repos từ GitHub trending
-    - 5-10 articles từ Anthropic và Security News
+    - 15-20 articles tổng hợp từ Anthropic, Security News, Hacker News, Arxiv, và YouTube
 
 summarize_task:
   description: >
     Nhận ResearchCollection từ gather_task. Làm các bước sau:
     1. Chọn đúng {repo_limit} repo GitHub có giá trị nhất cho AI developer
-    2. Chọn 3-5 articles tin tức đáng quan tâm nhất
+    2. Chọn 8-12 articles tin tức đáng quan tâm nhất, ĐẢM BẢO có đầy đủ đại diện từ các nguồn: Hacker News, Arxiv, YouTube, Anthropic và Security News. Bắt buộc phải có ít nhất 1 video YouTube.
     3. Với mỗi mục, tạo:
        - tldr: tóm tắt ngắn gọn 1-2 câu, TẬP TRUNG vào GIÁ TRỊ THỰC TẾ
        - why_it_matters: tại sao developer Việt Nam nên quan tâm
@@ -43,7 +43,7 @@ summarize_task:
     - headline: tiêu đề bản tin (tiếng Việt, hấp dẫn)
     - lead: đoạn mở đầu 2-3 câu tóm tắt xu hướng hôm nay
     - repos: list {repo_limit} NewsletterEntry
-    - articles: list 3-5 NewsletterEntry
+    - articles: list 8-12 NewsletterEntry (Bao gồm đầy đủ các nguồn)
 
 format_task:
   description: >
