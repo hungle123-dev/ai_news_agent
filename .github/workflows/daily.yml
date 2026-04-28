@@ -2,8 +2,8 @@ name: AI News Daily Delivery
 
 on:
   schedule:
-    # Chạy lúc 1:00 AM UTC (8:00 AM giờ Việt Nam GMT+7) mỗi ngày
-    - cron: '0 1 * * *'
+    # Chạy lúc 0:00 AM UTC (7:00 AM giờ Việt Nam GMT+7) mỗi ngày
+    - cron: '0 0 * * *'
   
   # Cho phép chạy thủ công từ giao diện GitHub
   workflow_dispatch:
