@@ -25,6 +25,14 @@ jobs:
     - name: 📦 Install dependencies
       run: pip install -r requirements.txt
         
+    - name: 💾 Restore seen URLs state
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.ai-news/seen.json
+        key: ai-news-state-
+        restore-keys: |
+          ai-news-state-
+        
     - name: 🚀 Run AI News Agent & Send Digest
       env:
         # LLM APIs
@@ -49,7 +57,7 @@ jobs:
         EMAIL_TO: ${{ secrets.EMAIL_TO }}
       
       run: |
-        python main.py --send
+        python main.py --send --telegraph
         
     - name: 💾 Save seen URLs state (Prevent duplicates)
       # Bước này lưu lại file seen.json vào một branch riêng biệt hoặc artifact
