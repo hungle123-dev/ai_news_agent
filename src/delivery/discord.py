@@ -8,7 +8,7 @@ import requests
 import datetime
 from typing import Optional
 
-from src.delivery.base import BasePlatformAdapter, DeliveryResult, PlatformConfig
+from src.delivery.base import BasePlatformAdapter, DeliveryResult
 from src.models import CuratedNewsletter
 
 

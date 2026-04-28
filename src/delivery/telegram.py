@@ -16,7 +16,7 @@ from typing import Optional
 
 import requests
 
-from src.delivery.base import BasePlatformAdapter, DeliveryResult, PlatformConfig
+from src.delivery.base import BasePlatformAdapter, DeliveryResult
 from src.models import CuratedNewsletter, FormattedNewsletter
 
 logger = logging.getLogger(__name__)

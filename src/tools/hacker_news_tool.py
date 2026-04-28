@@ -1,8 +1,18 @@
-from langchain_core.tools import tool
-from src.sources.hacker_news import HackerNewsSource
+import json
+from crewai.tools import BaseTool
+from src.sources.hacker_news import fetch
 
-@tool("hacker_news_tool")
-def hacker_news_tool(limit: int = 5) -> list[dict]:
-    """Tìm kiếm các bài viết nổi bật trên Hacker News về chủ đề AI/LLM."""
-    src = HackerNewsSource()
-    return [i.model_dump() for i in src.gather(limit=limit)]
+class HackerNewsTool(BaseTool):
+    name: str = "Hacker News Tool"
+    description: str = "Tìm kiếm các bài viết nổi bật trên Hacker News về chủ đề AI/LLM."
+
+    def _run(self, limit: int = 5) -> str:
+        cfg = {"max_items": limit}
+        items = fetch(cfg)
+        result = [
+            {"type": "article", "source": item.source, "title": item.title, "url": item.url, "summary": item.summary}
+            for item in items
+        ]
+        return json.dumps(result, ensure_ascii=False, indent=2)
+
+hacker_news_tool = HackerNewsTool()

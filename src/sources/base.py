@@ -8,7 +8,6 @@ import logging
 import re
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
-from urllib.parse import urlparse
 
 import requests
 

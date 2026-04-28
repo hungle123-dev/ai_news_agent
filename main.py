@@ -40,8 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-file", type=Path, default=None,
                         help="Lưu HTML ra file (vd: output.html)")
     parser.add_argument("--test-source", metavar="SOURCE",
-                        choices=["github", "anthropic", "security"],
-                        help="Test một nguồn dữ liệu cụ thể: github|anthropic|security")
+                        choices=["github", "anthropic", "security", "hacker_news", "arxiv"],
+                        help="Test một nguồn dữ liệu cụ thể: github|anthropic|security|hacker_news|arxiv")
     parser.add_argument("--show-state", action="store_true",
                         help="Xem thống kê state (số URL đã seen, lần chạy cuối)")
     parser.add_argument("--reset-state", action="store_true",
@@ -54,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_show_state() -> None:
     from src.state import STATE_FILE, get_stats
     stats = get_stats()
-    print(f"📊 State Stats:")
+    print("📊 State Stats:")
     print(f"  Seen items : {stats['seen_count']}")
     print(f"  Last run   : {stats['last_run'] or 'Chưa chạy lần nào'}")
     print(f"  State file : {STATE_FILE}")
@@ -78,6 +78,10 @@ def cmd_test_source(source_name: str) -> None:
         from src.sources.github import fetch
     elif source_name == "anthropic":
         from src.sources.anthropic import fetch
+    elif source_name == "hacker_news":
+        from src.sources.hacker_news import fetch
+    elif source_name == "arxiv":
+        from src.sources.arxiv import fetch
     else:
         from src.sources.security import fetch
 
@@ -105,7 +109,7 @@ def cmd_run(args: argparse.Namespace) -> str:
         title = curated.headline or "AI News"
 
         if args.dry_run:
-            print(f"\n📰 DRY-RUN (Telegraph mode)")
+            print("\n📰 DRY-RUN (Telegraph mode)")
             print(f"Title: {title}")
             print(f"Repos: {len(curated.repos)}, Articles: {len(curated.articles)}")
             return title
@@ -142,7 +146,7 @@ def cmd_run(args: argparse.Namespace) -> str:
                     html_out = adp._render_beautiful_email(curated_data)
                     with open("dry_run_email.html", "w", encoding="utf-8") as f:
                         f.write(html_out)
-                    print(f"✅ Đã gen file test HTML cao cấp tại: dry_run_email.html")
+                    print("✅ Đã gen file test HTML cao cấp tại: dry_run_email.html")
                 except Exception as e:
                     print(f"❌ Lỗi gen email HTML: {e}")
             
@@ -168,11 +172,10 @@ def cmd_run(args: argparse.Namespace) -> str:
 
         # 4. LƯU TRỮ BẢN TIN VÀO ARCHIVE CHO WEB DASHBOARD
         if curated_data:
-            import os
             from datetime import datetime
             from src.delivery.email import EmailAdapter, EmailConfig
             
-            archive_dir = Path("data/archive")
+            archive_dir = Path(__file__).parent / "data" / "archive"
             archive_dir.mkdir(parents=True, exist_ok=True)
             date_str = datetime.now().strftime("%Y-%m-%d")
             archive_file = archive_dir / f"digest_{date_str}.html"

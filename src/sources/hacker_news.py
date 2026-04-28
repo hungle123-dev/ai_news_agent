@@ -1,47 +1,29 @@
-import requests
 import logging
-from src.sources.base import BaseSource, ArticleResearchItem
+from src.sources.base import Item, http_get
 
 logger = logging.getLogger(__name__)
 
-class HackerNewsSource(BaseSource):
-    """Lấy tin tức nổi bật từ Hacker News (YCombinator) liên quan đến AI."""
+def fetch(cfg: dict) -> list[Item]:
+    limit = cfg.get("max_items", 5)
+    url = "https://hn.algolia.com/api/v1/search"
     
-    def gather(self, limit: int = 5, **kwargs) -> list[ArticleResearchItem]:
-        url = "https://hn.algolia.com/api/v1/search"
-        params = {
-            "query": "AI OR LLM OR GPT OR OpenAI OR Anthropic OR Claude",
-            "tags": "story",
-            "numericFilters": "points>=20",
-            "hitsPerPage": limit * 2
-        }
-        
-        results = []
-        try:
-            resp = requests.get(url, params=params, timeout=15)
-            resp.raise_for_status()
+    results = []
+    try:
+        resp = http_get(f"{url}?query=AI+OR+LLM+OR+GPT+OR+OpenAI+OR+Anthropic+OR+Claude&tags=story&numericFilters=points>=20&hitsPerPage={limit * 2}")
+        if resp:
             data = resp.json()
-            
             for hit in data.get("hits", []):
                 title = hit.get("title", "")
                 link = hit.get("url") or f"https://news.ycombinator.com/item?id={hit.get('objectID')}"
                 points = hit.get("points", 0)
                 
-                if self.is_seen(link):
-                    continue
-                    
-                item = ArticleResearchItem(
+                results.append(Item(
+                    source="Hacker News",
                     title=f"[HN] {title}",
                     url=link,
-                    summary=f"Thảo luận trên Hacker News ({points} points) về các công nghệ AI/LLM mới.",
-                    source_signal="hacker_news"
-                )
-                self.mark_seen(link)
-                results.append(item)
-                
-                if len(results) >= limit:
-                    break
-        except Exception as e:
-            logger.error(f"Lỗi khi crawl Hacker News: {e}")
-            
-        return results
+                    summary=f"Thảo luận trên Hacker News ({points} points) về các công nghệ AI/LLM mới."
+                ))
+    except Exception as e:
+        logger.error(f"Lỗi khi crawl Hacker News: {e}")
+        
+    return results[:limit]

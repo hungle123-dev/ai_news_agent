@@ -7,7 +7,7 @@ app = FastAPI(title="AI News Archive")
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    archive_dir = Path("data/archive")
+    archive_dir = Path(__file__).parent / "data" / "archive"
     if not archive_dir.exists():
         return "<h1>Chưa có bản tin nào! Hệ thống cần chạy ít nhất 1 lần.</h1>"
         
@@ -40,7 +40,7 @@ def index():
 
 @app.get("/archive/{filename}", response_class=HTMLResponse)
 def get_archive(filename: str):
-    file_path = Path("data/archive") / filename
+    file_path = Path(__file__).parent / "data" / "archive" / filename
     if not file_path.exists():
         return "<h1>Không tìm thấy bản tin!</h1>", 404
     return file_path.read_text(encoding="utf-8")
