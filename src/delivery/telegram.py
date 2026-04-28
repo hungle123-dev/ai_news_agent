@@ -164,6 +164,47 @@ def _split_html(text: str, max_len: int) -> list[str]:
 
 # ── Telegraph ─────────────────────────────────────────────────────────────────
 
+def render_telegraph_html(curated: CuratedNewsletter) -> str:
+    """Render HTML chuẩn dành riêng cho bài viết Telegraph (hỗ trợ p, br, h3, ul, li)."""
+    parts = []
+    
+    if curated.lead:
+        parts.append(f"<p><em>{html.escape(curated.lead)}</em></p>")
+        parts.append("<hr>")
+        
+    if curated.repos:
+        parts.append("<h3>🔥 GitHub Trending</h3>")
+        parts.append("<ul>")
+        for r in curated.repos:
+            parts.append("<li>")
+            parts.append(f"<strong><a href=\"{r.url}\">{html.escape(r.title)}</a></strong><br>")
+            parts.append(f"{html.escape(r.tldr)}<br>")
+            parts.append(f"💡 <em>Góc nhìn Dev:</em> {html.escape(r.why_it_matters)}")
+            if r.highlights:
+                parts.append("<ul>")
+                for h in r.highlights:
+                    parts.append(f"<li>{html.escape(h)}</li>")
+                parts.append("</ul>")
+            parts.append("</li><br>")
+        parts.append("</ul>")
+        parts.append("<hr>")
+        
+    if curated.articles:
+        parts.append("<h3>📰 Tin tức nổi bật</h3>")
+        parts.append("<ul>")
+        for a in curated.articles:
+            parts.append("<li>")
+            parts.append(f"<strong><a href=\"{a.url}\">{html.escape(a.title)}</a></strong><br>")
+            parts.append(f"{html.escape(a.tldr)}<br>")
+            parts.append(f"💡 <em>Tại sao quan trọng:</em> {html.escape(a.why_it_matters)}")
+            parts.append("</li><br>")
+        parts.append("</ul>")
+        parts.append("<hr>")
+        
+    parts.append("<p><em>Bản tin được tổng hợp tự động bởi AI News Agent.</em></p>")
+    return "".join(parts)
+
+
 def publish_to_telegraph(
     title: str,
     html_content: Optional[str] = None,
@@ -171,19 +212,20 @@ def publish_to_telegraph(
 ) -> Optional[str]:
     """
     Publish bài dài lên Telegraph, trả về URL.
-
-    Ưu tiên html_content nếu có, không thì render từ curated.
+    Sử dụng render_telegraph_html nếu có CuratedNewsletter.
     """
-    if html_content is None and curated is not None:
-        html_content = render_newsletter_html(curated)
-    if not html_content:
+    if curated is not None:
+        final_html = render_telegraph_html(curated)
+    elif html_content is not None:
+        final_html = html_content.replace("\n", "<br>")
+    else:
         return None
 
     try:
         from telegraph import Telegraph
         tg = Telegraph()
         tg.create_account(short_name="ai-news-agent")
-        response = tg.create_page(title=title, html_content=html_content)
+        response = tg.create_page(title=title, html_content=final_html)
         return f"https://telegra.ph/{response['path']}"
     except Exception as e:
         logger.error("Telegraph publish failed: %s", e)
