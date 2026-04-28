@@ -40,8 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-file", type=Path, default=None,
                         help="Lưu HTML ra file (vd: output.html)")
     parser.add_argument("--test-source", metavar="SOURCE",
-                        choices=["github", "anthropic", "security", "hacker_news", "arxiv"],
-                        help="Test một nguồn dữ liệu cụ thể: github|anthropic|security|hacker_news|arxiv")
+                        choices=["github", "anthropic", "security", "hacker_news", "arxiv", "youtube"],
+                        help="Test một nguồn dữ liệu cụ thể: github|anthropic|security|hacker_news|arxiv|youtube")
     parser.add_argument("--show-state", action="store_true",
                         help="Xem thống kê state (số URL đã seen, lần chạy cuối)")
     parser.add_argument("--reset-state", action="store_true",
@@ -82,6 +82,8 @@ def cmd_test_source(source_name: str) -> None:
         from src.sources.hacker_news import fetch
     elif source_name == "arxiv":
         from src.sources.arxiv import fetch
+    elif source_name == "youtube":
+        from src.sources.youtube import fetch
     else:
         from src.sources.security import fetch
 

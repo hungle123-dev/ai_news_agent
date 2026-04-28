@@ -5,6 +5,7 @@ from .anthropic_tool import AnthropicNewsTool
 from .security_tool import SecurityNewsTool
 from .hacker_news_tool import HackerNewsTool
 from .arxiv_tool import ArxivTool
+from .youtube_tool import YouTubeTool
 
 __all__ = [
     "GithubTrendingRepoTool",
@@ -13,4 +14,5 @@ __all__ = [
     "SecurityNewsTool",
     "HackerNewsTool",
     "ArxivTool",
+    "YouTubeTool",
 ]

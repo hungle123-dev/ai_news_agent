@@ -10,11 +10,12 @@ gather_task:
     4. Security News — tin bảo mật quan trọng
     5. hacker_news_tool — top tin tức Hacker News về AI
     6. arxiv_tool — các bài nghiên cứu AI/ML mới nhất từ Arxiv
+    7. youtube_tool — các video AI mới nhất trên YouTube (rất quan trọng)
 
     Tổng hợp kết quả vào một ResearchCollection với:
     - generated_at: thời gian hiện tại (ISO 8601)
     - repos: danh sách RepoResearchItem từ GitHub
-    - articles: danh sách ArticleResearchItem từ các nguồn còn lại
+    - articles: danh sách ArticleResearchItem từ các nguồn còn lại (bao gồm YouTube)
 
   expected_output: >
     Một ResearchCollection JSON hợp lệ chứa ít nhất:

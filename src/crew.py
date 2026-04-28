@@ -15,14 +15,13 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 from src.settings import get_settings
-from src.tools import (
-    GithubTrendingRepoTool,
-    GitHubRSSTool,
-    AnthropicNewsTool,
-    SecurityNewsTool,
-    HackerNewsTool,
-    ArxivTool,
-)
+from src.tools.github_tool import GithubTrendingRepoTool
+from src.tools.github_rss_tool import GitHubRSSTool
+from src.tools.anthropic_tool import AnthropicNewsTool
+from src.tools.security_tool import SecurityNewsTool
+from src.tools.hacker_news_tool import HackerNewsTool
+from src.tools.arxiv_tool import ArxivTool
+from src.tools.youtube_tool import YouTubeTool
 
 # Path đến file config — tương đối với file này (src/)
 _CONFIG_DIR = Path(__file__).parent / "config"
@@ -62,6 +61,7 @@ class AINewsCrew:
                 SecurityNewsTool(),
                 HackerNewsTool(),
                 ArxivTool(),
+                YouTubeTool(),
             ],
             verbose=False,
         )
