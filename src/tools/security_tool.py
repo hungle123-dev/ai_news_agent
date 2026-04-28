@@ -1,4 +1,6 @@
-"""Security news tool for CrewAI."""
+"""
+tools/security_tool.py — CrewAI tool lấy tin tức bảo mật từ RSS feeds.
+"""
 
 from __future__ import annotations
 
@@ -6,37 +8,25 @@ import json
 
 from crewai.tools import BaseTool
 
+from src.settings import get_source_config
 from src.sources.security import fetch as security_fetch
-from src.config_loader import get_source_config
 
 
 class SecurityNewsTool(BaseTool):
-    """Fetch security news from various feeds."""
-
     name: str = "Security News"
-    description: str = "Fetch latest security news from Hacker News, Bleeping Computer, Krebs on Security, and other security feeds."
+    description: str = (
+        "Lấy tin tức bảo mật mới nhất từ The Hacker News, Bleeping Computer, "
+        "Krebs on Security và các nguồn uy tín khác. Trả về JSON list bài viết."
+    )
 
     def _run(self, limit: int = 10) -> str:
         cfg = get_source_config("security")
         cfg["max_items"] = min(limit, 20)
         items = security_fetch(cfg)
 
-        result = []
-        for item in items[:limit]:
-            result.append(
-                {
-                    "type": "article",
-                    "source": item.source,
-                    "title": item.title,
-                    "url": item.url,
-                    "published": item.published,
-                    "summary": item.summary,
-                }
-            )
-
+        result = [
+            {"type": "article", "source": item.source, "title": item.title,
+             "url": item.url, "published": item.published, "summary": item.summary}
+            for item in items[:limit]
+        ]
         return json.dumps(result, ensure_ascii=False, indent=2)
-
-
-if __name__ == "__main__":
-    tool = SecurityNewsTool()
-    print(tool.run(5))

@@ -1,35 +1,70 @@
-# config/tasks.yaml
+# Cấu hình tasks cho CrewAI
+# Mỗi task có: description, expected_output
 
 gather_task:
   description: >
-    Hãy dùng đúng các tool được cấp để thu thập dữ liệu thô cho ngày {run_date}.
-    1. Gọi tool GitHub để lấy tối đa {repo_limit} repo AI/agentic đang nổi trên GitHub Trending daily.
-    2. Gọi tool Anthropic News và Security News để lấy tin mới nhất.
-    3. Không tự bịa thêm nguồn ngoài tool.
-    4. Giữ lại đầy đủ URL, stars/upvotes, title, summary.
+    Thu thập dữ liệu từ TẤT CẢ các tools sau theo thứ tự:
+    1. github_trending_ai_repo_tool (limit={repo_limit}) — GitHub repos nổi bật hôm nay
+    2. GitHub Trending RSS — backup source từ RSS feed
+    3. Anthropic News — tin tức từ Anthropic
+    4. Security News — tin bảo mật quan trọng
+
+    Tổng hợp kết quả vào một ResearchCollection với:
+    - generated_at: thời gian hiện tại (ISO 8601)
+    - repos: danh sách RepoResearchItem từ GitHub
+    - articles: danh sách ArticleResearchItem từ Anthropic và Security
+
   expected_output: >
-    Một object ResearchCollection gồm generated_at và danh sách items; dữ liệu gọn, đúng link, đúng schema.
+    Một ResearchCollection JSON hợp lệ chứa ít nhất:
+    - 3-5 repos từ GitHub trending
+    - 5-10 articles từ Anthropic và Security News
 
 summarize_task:
   description: >
-    Nhận ResearchCollection từ researcher và làm các việc sau:
-    1. Chọn đúng {repo_limit} items có tính ứng dụng cao nhất cho dev/builders.
-    2. Với mỗi mục, tạo TL;DR ngắn gọn, giải thích vì sao đáng chú ý, và 2-3 highlights.
-    3. source_signal phải tận dụng tín hiệu có sẵn, ví dụ "756 stars today".
-    4. Viết hoàn toàn bằng tiếng Việt tự nhiên, tránh dịch máy.
-    5. headline phải đủ lực để dùng làm title bản tin, lead phải ngắn và đúng trọng tâm.
+    Nhận ResearchCollection từ gather_task. Làm các bước sau:
+    1. Chọn đúng {repo_limit} repo GitHub có giá trị nhất cho AI developer
+    2. Chọn 3-5 articles tin tức đáng quan tâm nhất
+    3. Với mỗi mục, tạo:
+       - tldr: tóm tắt ngắn gọn 1-2 câu, TẬP TRUNG vào GIÁ TRỊ THỰC TẾ
+       - why_it_matters: tại sao developer Việt Nam nên quan tâm
+       - highlights: tối đa 3 bullet points kỹ thuật
+    4. Tạo headline và lead paragraph cho toàn bộ bản tin
+
+    Lưu ý: Ưu tiên những repo/tin có thể ứng dụng ngay, không chỉ là research.
+
   expected_output: >
-    Một object CuratedNewsletter gồm headline, lead, repos và papers; mỗi entry có title, url, tldr,
-    why_it_matters, highlights và source_signal.
+    Một CuratedNewsletter JSON với:
+    - headline: tiêu đề bản tin (tiếng Việt, hấp dẫn)
+    - lead: đoạn mở đầu 2-3 câu tóm tắt xu hướng hôm nay
+    - repos: list {repo_limit} NewsletterEntry
+    - articles: list 3-5 NewsletterEntry
 
 format_task:
   description: >
-    Nhận CuratedNewsletter và chuyển nó thành message HTML sẵn sàng gửi Telegram.
-    Yêu cầu:
-    - Output phải là HTML hợp lệ cho Telegram Bot API, không dùng Markdown.
-    - headline cần xuất hiện ngay dòng đầu tiên của message_html.
-    - Tên repo và paper phải là link click được.
-    - Giữ giọng điệu gọn, nhịp đọc tốt trên mobile.
-    - Không bịa thêm nội dung ngoài CuratedNewsletter.
+    Nhận CuratedNewsletter từ summarize_task.
+    Render thành HTML cho Telegram với format sau:
+
+    <b>🗞 [Headline]</b>
+
+    [Lead]
+
+    <b>🔥 GitHub Trending</b>
+    • <a href="[url]">[Tên repo]</a>
+      <i>[TL;DR]</i>
+      💡 [Why it matters]
+        – [highlight 1]
+        – [highlight 2]
+
+    <b>📰 Tin tức</b>
+    • <a href="[url]">[Tiêu đề]</a>
+      <i>[TL;DR]</i>
+
+    <i>AI News Agent</i>
+
+    Chỉ dùng các tag HTML Telegram hỗ trợ: <b>, <i>, <a href="">, <code>, <pre>
+    KHÔNG dùng: <div>, <p>, <span>, <h1>, <ul>, <li>
+
   expected_output: >
-    Một object FormattedNewsletter gồm title và message_html; message_html phải là HTML hợp lệ cho Telegram.
+    Một FormattedNewsletter JSON với:
+    - title: tiêu đề bản tin (plain text, không có HTML)
+    - message_html: HTML hoàn chỉnh đã sẵn sàng gửi Telegram

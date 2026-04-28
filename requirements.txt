@@ -1,12 +1,12 @@
-beautifulsoup4
-idna
 crewai
 langchain-google-genai
 openai
-arxiv
 requests
+beautifulsoup4
+lxml
 python-dotenv
-pyyaml
 pydantic
-pytest
+pyyaml
+idna
 telegraph
+pytest

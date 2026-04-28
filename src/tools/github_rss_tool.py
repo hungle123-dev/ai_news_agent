@@ -1,4 +1,6 @@
-"""GitHub RSS tool for CrewAI."""
+"""
+tools/github_rss_tool.py — CrewAI tool lấy GitHub trending qua RSS (nhanh hơn, không cần LLM).
+"""
 
 from __future__ import annotations
 
@@ -6,16 +8,15 @@ import json
 
 from crewai.tools import BaseTool
 
-from src.sources.github_trending import fetch as github_fetch
-from src.config_loader import get_source_config
+from src.settings import get_source_config
+from src.sources.github import fetch as github_fetch
 
 
 class GitHubRSSTool(BaseTool):
-    """Fetch GitHub trending repos using RSS."""
-
     name: str = "GitHub Trending RSS"
     description: str = (
-        "Fetch trending GitHub repos filtered by AI/ML keywords using RSS feeds."
+        "Lấy GitHub trending repos bằng RSS feed, lọc theo AI/ML keywords. "
+        "Nhanh hơn github_trending_ai_repo_tool nhưng không có tóm tắt LLM."
     )
 
     def _run(self, limit: int = 10) -> str:
@@ -23,21 +24,9 @@ class GitHubRSSTool(BaseTool):
         cfg["max_items"] = min(limit, 20)
         items = github_fetch(cfg)
 
-        result = []
-        for item in items[:limit]:
-            result.append(
-                {
-                    "type": "repo",
-                    "source": item.source,
-                    "title": item.title,
-                    "url": item.url,
-                    "summary": item.summary,
-                }
-            )
-
+        result = [
+            {"type": "repo", "source": item.source, "title": item.title,
+             "url": item.url, "summary": item.summary}
+            for item in items[:limit]
+        ]
         return json.dumps(result, ensure_ascii=False, indent=2)
-
-
-if __name__ == "__main__":
-    tool = GitHubRSSTool()
-    print(tool.run(5))

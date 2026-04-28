@@ -1,19 +1,27 @@
-# AI News Agent - source config
-# Bật/tắt sources, cấu hình keywords filter
+# AI News Agent — config.yaml
+# Bật/tắt nguồn và cấu hình keyword filter
 
 sources:
   github_trending:
     enabled: true
-    # Ngôn ngữ cần theo dõi (empty = all)
     languages: [python, typescript]
-    # Chỉ giữ repo có keyword này trong title/description
-    keywords: [ai, llm, agent, mcp, rag, gpt, llama, claude, openai]
-    # Số repo tối đa lấy mỗi ngày
+    keywords: [ai, llm, agent, mcp, rag, gpt, llama, claude, openai, gemini]
     max_items: 10
 
-# Cấu hình chung
+  anthropic:
+    enabled: true
+    # Lọc bài liên quan AI/engineering (để trống để lấy tất cả)
+    keywords: []
+    max_items: 20
+
+  security:
+    enabled: true
+    keywords: [ai, llm, vulnerability, zero-day, ransomware, malware, breach]
+    max_items: 5
+
 settings:
-  # Gửi bản tin lúc mấy giờ (UTC)
+  # Cron schedule cho GitHub Actions (UTC)
   cron: "0 1 * * *"
-  # Số items tối đa trong bản tin
-  max_items_total: 10
+  # Số repo và article đưa vào newsletter
+  newsletter_repos: 3
+  newsletter_articles: 3

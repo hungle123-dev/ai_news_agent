@@ -1,3 +1,12 @@
+"""
+models.py — Tất cả Pydantic models cho pipeline.
+
+Stages:
+  1. ResearchCollection   — dữ liệu thô từ researcher agent
+  2. CuratedNewsletter    — bản tin đã chọn lọc từ analyst agent
+  3. FormattedNewsletter  — HTML cuối cùng từ formatter agent
+"""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -5,51 +14,12 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-class RepoStructuredSummary(BaseModel):
-    repo_name: str = Field(description="Tên repository")
-    one_liner: str = Field(description="Tóm tắt ngắn, tối đa 20 từ")
-    core_problem_solved: str = Field(description="Bài toán chính repo giải quyết")
-    key_innovations: list[str] = Field(
-        default_factory=list,
-        description="Ba điểm nổi bật quan trọng nhất",
-    )
-    technical_highlights: str = Field(
-        description="Tech stack, kiến trúc hoặc điểm kỹ thuật đáng chú ý",
-    )
-
-    @field_validator("key_innovations")
-    @classmethod
-    def normalize_key_innovations(cls, values: list[str]) -> list[str]:
-        cleaned = [value.strip() for value in values if value and value.strip()]
-        if not cleaned:
-            cleaned = ["Không rõ"]
-        while len(cleaned) < 3:
-            cleaned.append("Không rõ")
-        return cleaned[:3]
-
-
-class PaperStructuredSummary(BaseModel):
-    title: str = Field(description="Tên paper")
-    summary_vi: str = Field(description="Tóm tắt tiếng Việt ngắn gọn")
-    core_idea: str = Field(description="Ý tưởng chính")
-    keywords: list[str] = Field(
-        default_factory=list,
-        description="Ba đến năm từ khóa quan trọng",
-    )
-    impact: str = Field(description="Tác động hoặc ứng dụng tiềm năng")
-
-    @field_validator("keywords")
-    @classmethod
-    def normalize_keywords(cls, values: list[str]) -> list[str]:
-        cleaned = [value.strip() for value in values if value and value.strip()]
-        if not cleaned:
-            cleaned = ["AI"]
-        return cleaned[:5]
-
+# ── Stage 1: Dữ liệu thô ──────────────────────────────────────────────────────
 
 class RepoResearchItem(BaseModel):
+    """Thông tin một GitHub repo đã được LLM tóm tắt."""
     type: Literal["repo"] = "repo"
-    repo_path: str
+    repo_path: str        # e.g. "openai/gpt-4"
     repo_name: str
     repo_url: str
     description: str
@@ -61,25 +31,28 @@ class RepoResearchItem(BaseModel):
     technical_highlights: str
 
 
-class PaperResearchItem(BaseModel):
-    type: Literal["paper"] = "paper"
+class ArticleResearchItem(BaseModel):
+    """Thông tin một bài báo/tin tức từ RSS feed."""
+    type: Literal["article"] = "article"
+    source: str           # e.g. "Anthropic", "Security"
     title: str
     url: str
-    summary_vi: str
-    core_idea: str
-    keywords: list[str]
-    impact: str
-    upvotes: int = 0
+    published: str | None = None
+    summary: str
 
 
 class ResearchCollection(BaseModel):
+    """Kết quả thu thập từ researcher agent."""
     generated_at: str
     repos: list[RepoResearchItem] = Field(default_factory=list)
-    papers: list[PaperResearchItem] = Field(default_factory=list)
+    articles: list[ArticleResearchItem] = Field(default_factory=list)
 
+
+# ── Stage 2: Bản tin đã chọn lọc ─────────────────────────────────────────────
 
 class NewsletterEntry(BaseModel):
-    kind: Literal["repo", "paper"]
+    """Một mục trong bản tin đã được curate."""
+    kind: Literal["repo", "article"] = "repo"
     title: str
     url: str
     tldr: str
@@ -89,18 +62,40 @@ class NewsletterEntry(BaseModel):
 
     @field_validator("highlights")
     @classmethod
-    def normalize_highlights(cls, values: list[str]) -> list[str]:
-        cleaned = [value.strip() for value in values if value and value.strip()]
-        return cleaned[:3]
+    def cap_highlights(cls, v: list[str]) -> list[str]:
+        return [s.strip() for s in v if s and s.strip()][:3]
 
 
 class CuratedNewsletter(BaseModel):
+    """Bản tin đã chọn lọc, chưa format HTML."""
     headline: str
     lead: str
     repos: list[NewsletterEntry] = Field(default_factory=list)
-    papers: list[NewsletterEntry] = Field(default_factory=list)
+    articles: list[NewsletterEntry] = Field(default_factory=list)
 
+
+# ── Stage 3: HTML cuối cùng ───────────────────────────────────────────────────
 
 class FormattedNewsletter(BaseModel):
+    """Bản tin đã format HTML, sẵn sàng gửi."""
     title: str
     message_html: str
+
+
+# ── Helper: LLM structured output từ README ───────────────────────────────────
+
+class RepoStructuredSummary(BaseModel):
+    """Schema dùng để parse structured output từ LLM khi đọc README."""
+    repo_name: str
+    one_liner: str
+    core_problem_solved: str
+    key_innovations: list[str] = Field(default_factory=list)
+    technical_highlights: str
+
+    @field_validator("key_innovations")
+    @classmethod
+    def ensure_three(cls, v: list[str]) -> list[str]:
+        cleaned = [s.strip() for s in v if s and s.strip()]
+        while len(cleaned) < 3:
+            cleaned.append("Không rõ")
+        return cleaned[:3]

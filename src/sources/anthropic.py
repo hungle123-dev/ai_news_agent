@@ -1,109 +1,96 @@
-"""Anthropic RSS feeds - News, Engineering Blog, Changelog, Courses, Events."""
+"""
+sources/anthropic.py — Thu thập tin tức từ Anthropic.
+
+Anthropic không còn cung cấp RSS feeds công khai, nên scrape trực tiếp trang news.
+Dùng Beautiful Soup để parse HTML.
+"""
 
 from __future__ import annotations
 
+import logging
 import re
-from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
+from src.sources.base import Item, http_get, filter_by_keywords
 
-from src.sources import (
-    Item,
-    http_get,
-    fetch_feed,
-    filter_by_keywords,
-    MAX_ITEMS_PER_FEED,
-)
+logger = logging.getLogger(__name__)
 
-FEEDS = {
-    "news": (
-        "Anthropic News",
-        None,
-        "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml",
-    ),
-    "engineering": (
-        "Engineering Blog",
-        None,
-        "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml",
-    ),
-    "changelog": (
-        "Claude Code Changelog",
-        None,
-        "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_changelog_claude_code.xml",
-    ),
-    "courses": (
-        "Anthropic Courses",
-        None,
-        "https://github.com/anthropics/courses/commits.atom",
-    ),
-}
-
-EVENTS_URL = "https://www.anthropic.com/events"
-DATE_RE = re.compile(
-    r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+\d{4}\b"
-)
-
-
-def _fetch_events() -> list[Item]:
-    """Fetch Anthropic events."""
-    try:
-        html = http_get(EVENTS_URL)
-    except Exception:
-        return []
-
-    soup = BeautifulSoup(html, "html.parser")
-    items: list[Item] = []
-    seen: set[str] = set()
-
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if "/webinars/" not in href and "/events/" not in href:
-            continue
-        full_url = urljoin("https://www.anthropic.com", href).rstrip("/")
-        if full_url in seen:
-            continue
-        if full_url.endswith("/webinars") or full_url.endswith("/events"):
-            continue
-
-        title = (a.get("aria-label") or "").strip()
-        if not title:
-            parent = a.find_parent(["div", "article", "li"]) or a
-            heading = parent.find(["h2", "h3", "h4", "h5"])
-            if heading:
-                title = heading.get_text(strip=True)
-        if not title:
-            title = a.get_text(strip=True)
-        if not title or len(title) < 5:
-            continue
-
-        date_str = ""
-        parent = a.find_parent(["div", "article", "li"])
-        if parent:
-            m = DATE_RE.search(parent.get_text(" ", strip=True))
-            if m:
-                date_str = m.group(0)
-
-        seen.add(full_url)
-        items.append(
-            Item(source="Events", title=title, url=full_url, published=date_str)
-        )
-        if len(items) >= MAX_ITEMS_PER_FEED:
-            break
-
-    return items
+_NEWS_URL = "https://www.anthropic.com/news"
 
 
 def fetch(cfg: dict) -> list[Item]:
-    """Fetch Anthropic feeds."""
-    enabled_feeds = cfg.get("feeds") or list(FEEDS.keys()) + ["events"]
+    """
+    Scrape trang tin tức của Anthropic.
+
+    cfg keys:
+        keywords  (list[str]): Lọc theo keyword. Default: [] (lấy tất cả)
+        max_items (int):       Số bài tối đa. Default: 20
+    """
     keywords = cfg.get("keywords", [])
+    max_items = cfg.get("max_items", 20)
+
+    items = _scrape_news(max_items)
+    return filter_by_keywords(items, keywords)
+
+
+def _scrape_news(max_items: int) -> list[Item]:
+    """Scrape trang /news của Anthropic."""
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        logger.error("BeautifulSoup không được cài. Chạy: pip install beautifulsoup4")
+        return []
+
+    resp = http_get(_NEWS_URL)
+    if resp is None:
+        return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
     items: list[Item] = []
 
-    for key in enabled_feeds:
-        if key == "events":
-            items.extend(_fetch_events())
-        elif key in FEEDS:
-            source, label, url = FEEDS[key]
-            items.extend(fetch_feed(source, label, url))
+    # Tìm các article cards — Anthropic dùng nhiều layout khác nhau
+    # Thử các selector phổ biến
+    cards = (
+        soup.select("a[href*='/news/']") or
+        soup.select("article a") or
+        soup.select(".PostCard, .news-card, [class*='post'], [class*='card']")
+    )
 
-    return filter_by_keywords(items, keywords)
+    seen_urls: set[str] = set()
+    for el in cards:
+        try:
+            # Lấy href
+            href = el.get("href", "")
+            if not href or "/news/" not in href:
+                continue
+            url = f"https://www.anthropic.com{href}" if href.startswith("/") else href
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            # Lấy title từ heading trong card hoặc từ text của link
+            title_el = el.find(["h1", "h2", "h3", "h4"])
+            title = title_el.get_text(strip=True) if title_el else el.get_text(strip=True)
+            title = re.sub(r"\s+", " ", title).strip()
+
+            if not title or len(title) < 5:
+                continue
+
+            # Lấy description nếu có
+            desc_el = el.find("p")
+            summary = desc_el.get_text(strip=True) if desc_el else ""
+
+            items.append(Item(
+                source="Anthropic",
+                title=title,
+                url=url,
+                summary=summary[:300],
+            ))
+
+            if len(items) >= max_items:
+                break
+
+        except Exception:
+            continue
+
+    logger.info("Anthropic: scraped %d items", len(items))
+    return items

@@ -1,242 +1,192 @@
+"""
+main.py — Entry point của AI News Agent.
+
+Cách dùng:
+  python main.py --dry-run              # Preview, không gửi
+  python main.py --send                 # Chạy và gửi Telegram
+  python main.py --send --telegraph     # Gửi dạng Telegraph link
+  python main.py --test-source github   # Test nguồn dữ liệu
+  python main.py --show-state           # Xem trạng thái đã seen
+  python main.py --reset-state          # Xóa state
+"""
+
 from __future__ import annotations
 
 import argparse
 import logging
-from datetime import datetime
+import sys
 from pathlib import Path
 
-from src.crew import AINewsCrew
-from src.config import get_settings
-from src.gateway.service import build_gateway, get_active_platforms
-from src.monitoring import record_pipeline_run
-from src.services.telegram_service import (
-    TelegramService,
-    publish_to_telegraph,
-)
-from src.utils import setup_logging
-from src.helpers import extract_message_html
-from src.state import (
-    load_state,
-    save_state,
-    add_seen,
-    get_stats,
-    clear_state,
-    STATE_DIR,
-    STATE_FILE,
-)
+from src.settings import get_settings, setup_logging
 
 logger = logging.getLogger(__name__)
 
-file_logger = setup_logging("ai-news")
 
+# ── CLI ────────────────────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run AI news agent pipeline.")
-    parser.add_argument("--repo-limit", type=int, default=None)
-    parser.add_argument(
-        "--send",
-        action="store_true",
-        help="Gửi message sau khi pipeline hoàn thành.",
+    parser = argparse.ArgumentParser(
+        description="AI News Agent — thu thập và gửi bản tin AI hàng ngày.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--output-file",
-        type=Path,
-        default=None,
-        help="Lưu HTML cuối cùng ra file.",
-    )
-    parser.add_argument(
-        "--telegraph",
-        action="store_true",
-        help="Gửi qua Telegraph (1 tin nhắn thay vì nhiều tin).",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Preview only - không gửi đi đâu.",
-    )
-    parser.add_argument(
-        "--reset-state",
-        action="store_true",
-        help="Xóa state file (seen.json).",
-    )
-    parser.add_argument(
-        "--init-state",
-        action="store_true",
-        help="Đánh dấu tất cả items hiện tại là đã thấy (seen).",
-    )
-    parser.add_argument(
-        "--show-state",
-        action="store_true",
-        help="Hiển thị state stats.",
-    )
-    parser.add_argument(
-        "--test-source",
-        type=str,
-        default=None,
-        help="Test a specific source (e.g., github, anthropic, security).",
-    )
+    parser.add_argument("--repo-limit", type=int, default=None,
+                        help="Số repo GitHub tối đa (default từ .env hoặc 5)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Chạy và preview, KHÔNG gửi đi đâu")
+    parser.add_argument("--send", action="store_true",
+                        help="Chạy và gửi đến các platform đã cấu hình")
+    parser.add_argument("--telegraph", action="store_true",
+                        help="Gửi dạng Telegraph link thay vì HTML trực tiếp")
+    parser.add_argument("--output-file", type=Path, default=None,
+                        help="Lưu HTML ra file (vd: output.html)")
+    parser.add_argument("--test-source", metavar="SOURCE",
+                        choices=["github", "anthropic", "security"],
+                        help="Test một nguồn dữ liệu cụ thể: github|anthropic|security")
+    parser.add_argument("--show-state", action="store_true",
+                        help="Xem thống kê state (số URL đã seen, lần chạy cuối)")
+    parser.add_argument("--reset-state", action="store_true",
+                        help="Xóa state file (seen.json)")
     return parser
 
 
-def _paper_date_arg(value: str) -> str:
-    try:
-        datetime.strptime(value, "%Y-%m-%d")
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            "paper-date phải có định dạng YYYY-MM-DD."
-        ) from exc
-    return value
+# ── Commands ───────────────────────────────────────────────────────────────────
+
+def cmd_show_state() -> None:
+    from src.state import STATE_FILE, get_stats
+    stats = get_stats()
+    print(f"📊 State Stats:")
+    print(f"  Seen items : {stats['seen_count']}")
+    print(f"  Last run   : {stats['last_run'] or 'Chưa chạy lần nào'}")
+    print(f"  State file : {STATE_FILE}")
 
 
-def run() -> str:
-    args = build_parser().parse_args()
+def cmd_reset_state() -> None:
+    from src.state import clear_state
+    if clear_state():
+        print("✅ State đã được xóa.")
+    else:
+        print("ℹ️  Không có state để xóa.")
+
+
+def cmd_test_source(source_name: str) -> None:
+    """Test một nguồn dữ liệu và in ra 5 items đầu tiên."""
+    from src.settings import get_source_config
+
+    cfg = get_source_config(source_name if source_name != "github" else "github_trending")
+
+    if source_name == "github":
+        from src.sources.github import fetch
+    elif source_name == "anthropic":
+        from src.sources.anthropic import fetch
+    else:
+        from src.sources.security import fetch
+
+    items = fetch(cfg)
+    print(f"📰 {source_name}: {len(items)} items")
+    for item in items[:5]:
+        print(f"  • {item.title[:70]}")
+        print(f"    {item.url}")
+
+
+def cmd_run(args: argparse.Namespace) -> str:
+    """Chạy pipeline chính: gather → summarize → format → (gửi)."""
+    from src.crew import AINewsCrew
+    from src.delivery.telegram import extract_message_html, publish_to_telegraph
+    from src.delivery.gateway import build_gateway, get_active_platforms
+
     settings = get_settings()
-
-    # State management commands
-    if args.reset_state:
-        if clear_state():
-            print("✅ State cleared.")
-            file_logger.info("State cleared by user")
-        else:
-            print("No state to clear.")
-        return ""
-
-    if args.show_state:
-        state = load_state()
-        stats = get_stats(state)
-        print(f"📊 State Stats:")
-        print(f"  Seen items: {stats['seen_count']}")
-        print(f"  Last run: {stats['last_run'] or 'Never'}")
-        print(f"  State file: {STATE_FILE}")
-        return ""
-
-    # Test a specific source
-    if args.test_source:
-        from src.config_loader import get_source_config
-
-        source_name = args.test_source
-
-        if source_name == "github":
-            from src.sources.github_trending import fetch as gh_fetch
-
-            cfg = get_source_config("github_trending")
-            items = gh_fetch(cfg)
-        elif source_name == "anthropic":
-            from src.sources.anthropic import fetch as an_fetch
-
-            cfg = get_source_config("anthropic")
-            items = an_fetch(cfg)
-        elif source_name == "security":
-            from src.sources.security import fetch as sec_fetch
-
-            cfg = get_source_config("security")
-            items = sec_fetch(cfg)
-        else:
-            print(f"Unknown source: {source_name}")
-            print(f"Available: github, anthropic, security")
-            return ""
-
-        print(f"📰 {source_name}: {len(items)} items")
-        for item in items[:5]:
-            print(f"  • {item.title[:60]}")
-            print(f"    {item.url}")
-        return ""
-
-    # Dry-run: chỉ chạy crew và preview, không gửi đi đâu
-    if args.dry_run:
-        file_logger.info("🚀 Dry-run mode - Preview only")
-        repo_limit = args.repo_limit or settings.default_repo_limit
-
-        crew = AINewsCrew(
-            repo_limit=repo_limit,
-        )
-
-        if args.telegraph:
-            try:
-                curated = crew.get_curated_newsletter()
-                title = curated.headline if curated.headline else "AI News"
-                message_html = f"<b>{title}</b>\n\n{curated.lead or ''}"
-                print(f"\n📰 DRY-RUN PREVIEW (Telegraph mode):\n{message_html}\n")
-                file_logger.info(f"Dry-run: {title} - ready for telegraph")
-            except Exception as e:
-                print(f"❌ Error in dry-run: {e}")
-                file_logger.error(f"Dry-run failed: {e}")
-        else:
-            crew_output = crew.crew().kickoff()
-            message_html = extract_message_html(crew_output)
-            print(f"\n📰 DRY-RUN PREVIEW:\n{message_html}\n")
-            title = (
-                crew_output.pydantic.title
-                if hasattr(crew_output.pydantic, "title")
-                else "AI News"
-            )
-            file_logger.info(f"Dry-run: {title} - ready for preview")
-
-        return message_html
-
     repo_limit = args.repo_limit or settings.default_repo_limit
 
-    crew = AINewsCrew(
-        repo_limit=repo_limit,
-    )
+    crew = AINewsCrew(repo_limit=repo_limit)
 
-    if args.send and args.telegraph:
+    # ── Chế độ Telegraph (dùng get_curated_newsletter, không cần format_task) ──
+    if args.telegraph:
         curated = crew.get_curated_newsletter()
-        title = curated.headline if curated.headline else "AI News"
+        title = curated.headline or "AI News"
+
+        if args.dry_run:
+            print(f"\n📰 DRY-RUN (Telegraph mode)")
+            print(f"Title: {title}")
+            print(f"Repos: {len(curated.repos)}, Articles: {len(curated.articles)}")
+            return title
+
         telegraph_url = publish_to_telegraph(title, curated=curated)
         if telegraph_url:
-            preview = f"<b>{title}</b>\n\n👉 <a href='{telegraph_url}'>Đọc chi tiết (Instant View)</a>"
-            TelegramService().send_html_message(preview)
-            print(f"✅ telegraph: {telegraph_url}")
+            preview = f"<b>{title}</b>\n\n👉 <a href='{telegraph_url}'>Đọc chi tiết</a>"
+            _send_telegram_direct(preview, settings)
+            print(f"✅ Telegraph: {telegraph_url}")
         else:
-            print("❌ telegraph: failed to publish")
-        message_html = f"<b>{title}</b>\n\n{curated.lead or ''}"
-    else:
-        crew_output = crew.crew().kickoff()
-        message_html = extract_message_html(crew_output)
+            print("❌ Telegraph: publish thất bại")
+        return telegraph_url or ""
 
-        if args.send:
-            title = (
-                crew_output.pydantic.title
-                if hasattr(crew_output.pydantic, "title")
-                else "AI News"
-            )
-            active_platforms = get_active_platforms()
+    # ── Chế độ thông thường (chạy full 3-task pipeline) ─────────────────────
+    crew_output = crew.crew().kickoff()
+    message_html = extract_message_html(crew_output)
 
-            if not active_platforms:
-                print("⚠️  Không có platform nào được bật. Kiểm tra cấu hình .env")
+    if args.dry_run:
+        print(f"\n📰 DRY-RUN PREVIEW:\n{message_html}\n")
+        logger.info("Dry-run hoàn thành")
+        return message_html
 
-            gateway = build_gateway()
-            gateway.connect_all()
+    if args.send:
+        active_platforms = get_active_platforms()
+        if not active_platforms:
+            print("⚠️  Không có platform nào được bật. Kiểm tra .env")
+            return message_html
 
-            results = gateway.deliver_newsletter(
-                message_html, platforms=active_platforms if active_platforms else None
-            )
+        gateway = build_gateway()
+        results = gateway.deliver(message_html, platforms=active_platforms)
 
-            for platform, result in results.items():
-                status = "✅" if result.success else "❌"
-                print(f"{status} {platform}: {result.error or result.message_id}")
+        for platform, result in results.items():
+            icon = "✅" if result.success else "❌"
+            detail = result.error or result.message_id or "OK"
+            print(f"{icon} {platform}: {detail}")
 
-            record_pipeline_run(
-                model=settings.openai_model
-                if settings.llm_provider == "openai"
-                else settings.gemini_model,
-                provider=settings.llm_provider,
-                repo_count=repo_limit,
-                success=any(r.success for r in results.values()),
-            )
+        logger.info("Gửi xong: %s", {k: v.success for k, v in results.items()})
 
+    # Lưu ra file nếu có
     if args.output_file:
         args.output_file.write_text(message_html, encoding="utf-8")
+        print(f"💾 Đã lưu: {args.output_file}")
 
-    print(message_html)
     return message_html
 
 
-if __name__ == "__main__":
+def _send_telegram_direct(html_text: str, settings) -> None:
+    """Gửi thẳng qua Telegram adapter (dùng cho Telegraph mode)."""
+    if not (settings.enable_telegram and settings.telegram_enabled):
+        return
+    from src.delivery.base import PlatformConfig
+    from src.delivery.telegram import TelegramAdapter
+    cfg = PlatformConfig(enabled=True, api_token=settings.telegram_token, chat_id=settings.chat_id)
+    TelegramAdapter(cfg).deliver(html_text)
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    setup_logging("ai-news")
+    args = build_parser().parse_args()
+
     try:
-        run()
+        if args.show_state:
+            cmd_show_state()
+        elif args.reset_state:
+            cmd_reset_state()
+        elif args.test_source:
+            cmd_test_source(args.test_source)
+        elif args.dry_run or args.send:
+            cmd_run(args)
+        else:
+            build_parser().print_help()
+    except KeyboardInterrupt:
+        print("\n⚠️  Đã dừng bởi người dùng.")
+        sys.exit(0)
     except Exception as exc:
-        logger.error(f"Pipeline failed: {exc}")
-        print("❌ Pipeline failed. Check logs for details.")
-        raise SystemExit(1)
+        logger.error("Pipeline failed: %s", exc, exc_info=True)
+        print(f"❌ Pipeline thất bại: {exc}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
